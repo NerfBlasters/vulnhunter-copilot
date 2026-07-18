@@ -919,6 +919,7 @@ async def _preflight_clone_requests(
         allowed_token_path_prefixes=authorized_token_path_prefixes(
             config.verify.repo_aliases, config.verify.token_path_prefixes
         ),
+        max_additional_repos=config.verify.max_additional_repos,
     )
     logger.info(
         "Pre-flight resolved %d additional repo(s); %d ignored.",
@@ -991,6 +992,7 @@ def _process_clone_request(
     aliases: dict[str, str],
     allowed_hosts: tuple[str, ...] = (),
     allowed_token_path_prefixes: tuple[str, ...] = (),
+    max_additional_repos: int = MAX_ADDITIONAL_REPOS,
 ) -> None:
     """Resolve the requested sources, cloning each that resolves and
     recording the rest as ignored.
@@ -1000,20 +1002,22 @@ def _process_clone_request(
     is added to ``state.ignored_hints`` for later R6 annotation.
     Returns nothing — there's only one caller now (the pre-flight)
     and it doesn't need fixed-point detection.
+
+    The cap (``max_additional_repos``) bounds the number of *clone
+    attempts*, not the number of retained clones. ``clone_additional_repo``
+    is the expensive step (a 300s shallow_clone over the network), and a
+    FAILED clone doesn't grow ``state.additional_repos`` — so gating on the
+    retained count lets an attacker pack many resolvable-but-nonexistent
+    references (``resolve_repo_hint`` does no existence check) and drive
+    unbounded failed clones. We therefore charge the budget the moment an
+    entry clears the cheap pre-checks and is about to reach the clone stage,
+    regardless of whether that clone ultimately succeeds. Cheap early-skips
+    (empty hint, already-ignored, unresolved) do NOT consume the budget.
     """
     additional_repos_dir.mkdir(parents=True, exist_ok=True)
     sources = payload.get("requested_sources", []) or []
+    attempts = 0
     for index, entry in enumerate(sources):
-        if len(state.additional_repos) >= MAX_ADDITIONAL_REPOS:
-            remaining = len(sources) - index
-            logger.warning(
-                "Additional-repo clone cap reached (%d); skipping %d "
-                "remaining cross-repo reference(s). This bounds "
-                "resource use against attacker-supplied references.",
-                MAX_ADDITIONAL_REPOS,
-                remaining,
-            )
-            break
         hint = (entry or {}).get("repo_hint", "")
         if not hint or hint in state.ignored_hints:
             continue
@@ -1026,6 +1030,20 @@ def _process_clone_request(
                 hint,
             )
             continue
+        # This entry cleared the cheap pre-checks and is about to reach the
+        # (expensive) clone stage: charge the attempt budget here so that
+        # failed clones count too.
+        if attempts >= max_additional_repos:
+            remaining = len(sources) - index
+            logger.warning(
+                "Additional-repo clone-attempt cap reached (%d); skipping %d "
+                "remaining cross-repo reference(s). This bounds "
+                "resource use against attacker-supplied references.",
+                max_additional_repos,
+                remaining,
+            )
+            break
+        attempts += 1
         try:
             clone_root = additional_repos_dir / _sanitize_clone_subdir(hint)
             local = clone_additional_repo(
