@@ -203,12 +203,24 @@ def scan_folder(folder_path, log_file=None, readonly=False):
     print(f"  [{ts()}] [{label}] STARTING scan", flush=True)
     start = time.time()
 
+    # CANON-03: when scanning an untrusted repo read-only, do NOT grant
+    # write/exec capabilities. Prompt-injected content in the scanned repo must
+    # not be able to drive Write/Edit/Bash on the host, and the permission mode
+    # must not auto-accept edits or bypass permissions. Non-readonly (default)
+    # callers keep the full capability set so their behavior is unchanged.
+    if readonly:
+        tool_args = ["--allowedTools", "Read", "Grep", "Glob", "Agent"]
+        permission_mode = "plan"
+    else:
+        tool_args = ["--allowedTools", "Read", "Write", "Edit", "Bash", "Agent"]
+        permission_mode = "acceptEdits"
+
     proc = subprocess.Popen(
         ["claude", "-p", prompt,
          "--output-format", "stream-json",
          "--verbose",
-         "--allowedTools", "Read", "Write", "Edit", "Bash", "Agent",
-         "--permission-mode", "acceptEdits",
+         *tool_args,
+         "--permission-mode", permission_mode,
          "--model", MODEL,
          "--add-dir", folder_path,
          "--add-dir", os.path.dirname(folder_path),

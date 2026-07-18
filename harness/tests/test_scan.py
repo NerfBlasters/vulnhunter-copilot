@@ -252,6 +252,91 @@ def test_scan_folder_readonly_appends_prompt(monkeypatch, tmp_path):
     assert "read-only scan" not in captured["prompt"]
 
 
+def test_scan_folder_readonly_restricts_capabilities(monkeypatch, tmp_path):
+    """CANON-03: a readonly scan of an untrusted repo must not grant write/exec.
+
+    The subprocess argv must contain none of Write/Edit/Bash in --allowedTools,
+    and the --permission-mode must not be an edit-accepting/bypass mode.
+    """
+    folder = tmp_path / "repo"
+    folder.mkdir()
+    monkeypatch.setattr(scan, "SKILLS_DIR", str(tmp_path / "skills"))
+    (tmp_path / "skills").mkdir()
+
+    captured = {}
+
+    def fake_popen(cmd, *a, **k):
+        captured["argv"] = cmd
+        return _FakePopen([json.dumps({"type": "result"}) + "\n"], returncode=0)
+    monkeypatch.setattr(scan.subprocess, "Popen", fake_popen)
+
+    class _NoTimer:
+        def __init__(self, *a, **k):
+            pass
+        def start(self):
+            pass
+        def cancel(self):
+            pass
+    monkeypatch.setattr(scan.threading, "Timer", _NoTimer)
+
+    scan.scan_folder(str(folder), readonly=True)
+    argv = captured["argv"]
+
+    # Isolate the --allowedTools values (everything until the next --flag).
+    idx = argv.index("--allowedTools")
+    tools = []
+    for tok in argv[idx + 1:]:
+        if tok.startswith("--"):
+            break
+        tools.append(tok)
+
+    assert "Write" not in tools, f"readonly scan must not grant Write: {tools}"
+    assert "Edit" not in tools, f"readonly scan must not grant Edit: {tools}"
+    assert "Bash" not in tools, f"readonly scan must not grant Bash: {tools}"
+    assert "Read" in tools, f"readonly scan should still allow Read: {tools}"
+
+    pm = argv[argv.index("--permission-mode") + 1]
+    assert pm not in ("acceptEdits", "bypassPermissions"), (
+        f"readonly scan must not use an edit-accepting mode: {pm}"
+    )
+    assert pm == "plan"
+
+
+def test_scan_folder_default_capabilities_unchanged(monkeypatch, tmp_path):
+    """CANON-03: non-readonly (default) callers keep full capabilities."""
+    folder = tmp_path / "repo"
+    folder.mkdir()
+    monkeypatch.setattr(scan, "SKILLS_DIR", str(tmp_path / "skills"))
+    (tmp_path / "skills").mkdir()
+
+    captured = {}
+
+    def fake_popen(cmd, *a, **k):
+        captured["argv"] = cmd
+        return _FakePopen([json.dumps({"type": "result"}) + "\n"], returncode=0)
+    monkeypatch.setattr(scan.subprocess, "Popen", fake_popen)
+
+    class _NoTimer:
+        def __init__(self, *a, **k):
+            pass
+        def start(self):
+            pass
+        def cancel(self):
+            pass
+    monkeypatch.setattr(scan.threading, "Timer", _NoTimer)
+
+    scan.scan_folder(str(folder), readonly=False)
+    argv = captured["argv"]
+    idx = argv.index("--allowedTools")
+    tools = []
+    for tok in argv[idx + 1:]:
+        if tok.startswith("--"):
+            break
+        tools.append(tok)
+    assert {"Read", "Write", "Edit", "Bash", "Agent"} <= set(tools)
+    assert argv[argv.index("--permission-mode") + 1] == "acceptEdits"
+
+
 def test_scan_folder_timeout(monkeypatch, tmp_path):
     folder = tmp_path / "repo"
     folder.mkdir()
