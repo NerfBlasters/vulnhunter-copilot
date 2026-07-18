@@ -252,88 +252,67 @@ def test_scan_folder_readonly_appends_prompt(monkeypatch, tmp_path):
     assert "read-only scan" not in captured["prompt"]
 
 
-def test_scan_folder_readonly_restricts_capabilities(monkeypatch, tmp_path):
-    """CANON-03: a readonly scan of an untrusted repo must not grant write/exec.
+def _capture_scan_tools(monkeypatch, tmp_path, **scan_kwargs):
+    """Run scan_folder with Popen stubbed and return the --allowedTools list."""
+    folder = tmp_path / "repo"
+    folder.mkdir()
+    monkeypatch.setattr(scan, "SKILLS_DIR", str(tmp_path / "skills"))
+    (tmp_path / "skills").mkdir()
 
-    The subprocess argv must contain none of Write/Edit/Bash in --allowedTools,
-    and the --permission-mode must not be an edit-accepting/bypass mode.
+    captured = {}
+
+    def fake_popen(cmd, *a, **k):
+        captured["argv"] = cmd
+        return _FakePopen([json.dumps({"type": "result"}) + "\n"], returncode=0)
+    monkeypatch.setattr(scan.subprocess, "Popen", fake_popen)
+
+    class _NoTimer:
+        def __init__(self, *a, **k):
+            pass
+        def start(self):
+            pass
+        def cancel(self):
+            pass
+    monkeypatch.setattr(scan.threading, "Timer", _NoTimer)
+
+    scan.scan_folder(str(folder), **scan_kwargs)
+    argv = captured["argv"]
+    idx = argv.index("--allowedTools")
+    tools = []
+    for tok in argv[idx + 1:]:
+        if tok.startswith("--"):
+            break
+        tools.append(tok)
+    return tools, argv
+
+
+def test_scan_folder_default_is_readonly_no_bash(monkeypatch, tmp_path):
+    """CANON-03: scans are read-only BY DEFAULT and must not grant Bash.
+
+    The untrusted-repo scan paths (batch/benchmark) rely on this default, so
+    prompt-injected content cannot drive host command execution. The read-only
+    set retains Read/Write/Edit/Agent/AskUserQuestion/Grep/Glob but not Bash.
     """
-    folder = tmp_path / "repo"
-    folder.mkdir()
-    monkeypatch.setattr(scan, "SKILLS_DIR", str(tmp_path / "skills"))
-    (tmp_path / "skills").mkdir()
-
-    captured = {}
-
-    def fake_popen(cmd, *a, **k):
-        captured["argv"] = cmd
-        return _FakePopen([json.dumps({"type": "result"}) + "\n"], returncode=0)
-    monkeypatch.setattr(scan.subprocess, "Popen", fake_popen)
-
-    class _NoTimer:
-        def __init__(self, *a, **k):
-            pass
-        def start(self):
-            pass
-        def cancel(self):
-            pass
-    monkeypatch.setattr(scan.threading, "Timer", _NoTimer)
-
-    scan.scan_folder(str(folder), readonly=True)
-    argv = captured["argv"]
-
-    # Isolate the --allowedTools values (everything until the next --flag).
-    idx = argv.index("--allowedTools")
-    tools = []
-    for tok in argv[idx + 1:]:
-        if tok.startswith("--"):
-            break
-        tools.append(tok)
-
-    assert "Write" not in tools, f"readonly scan must not grant Write: {tools}"
-    assert "Edit" not in tools, f"readonly scan must not grant Edit: {tools}"
-    assert "Bash" not in tools, f"readonly scan must not grant Bash: {tools}"
-    assert "Read" in tools, f"readonly scan should still allow Read: {tools}"
-
-    pm = argv[argv.index("--permission-mode") + 1]
-    assert pm not in ("acceptEdits", "bypassPermissions"), (
-        f"readonly scan must not use an edit-accepting mode: {pm}"
+    tools, argv = _capture_scan_tools(monkeypatch, tmp_path)  # no readonly arg -> default
+    assert "Bash" not in tools, f"default scan must not grant Bash: {tools}"
+    assert {"Read", "Write", "Edit", "Agent", "AskUserQuestion", "Grep", "Glob"} <= set(tools), (
+        f"default read-only scan tool set unexpected: {tools}"
     )
-    assert pm == "plan"
 
 
-def test_scan_folder_default_capabilities_unchanged(monkeypatch, tmp_path):
-    """CANON-03: non-readonly (default) callers keep full capabilities."""
-    folder = tmp_path / "repo"
-    folder.mkdir()
-    monkeypatch.setattr(scan, "SKILLS_DIR", str(tmp_path / "skills"))
-    (tmp_path / "skills").mkdir()
+def test_scan_folder_readonly_no_bash(monkeypatch, tmp_path):
+    """CANON-03: explicit readonly=True yields the same no-Bash tool set."""
+    tools, _ = _capture_scan_tools(monkeypatch, tmp_path, readonly=True)
+    assert "Bash" not in tools, f"readonly scan must not grant Bash: {tools}"
+    assert {"Read", "Write", "Edit", "Agent", "AskUserQuestion", "Grep", "Glob"} <= set(tools)
 
-    captured = {}
 
-    def fake_popen(cmd, *a, **k):
-        captured["argv"] = cmd
-        return _FakePopen([json.dumps({"type": "result"}) + "\n"], returncode=0)
-    monkeypatch.setattr(scan.subprocess, "Popen", fake_popen)
-
-    class _NoTimer:
-        def __init__(self, *a, **k):
-            pass
-        def start(self):
-            pass
-        def cancel(self):
-            pass
-    monkeypatch.setattr(scan.threading, "Timer", _NoTimer)
-
-    scan.scan_folder(str(folder), readonly=False)
-    argv = captured["argv"]
-    idx = argv.index("--allowedTools")
-    tools = []
-    for tok in argv[idx + 1:]:
-        if tok.startswith("--"):
-            break
-        tools.append(tok)
-    assert {"Read", "Write", "Edit", "Bash", "Agent"} <= set(tools)
+def test_scan_folder_execute_optin_grants_bash(monkeypatch, tmp_path):
+    """CANON-03: only an explicit opt-out (readonly=False) re-adds Bash."""
+    tools, argv = _capture_scan_tools(monkeypatch, tmp_path, readonly=False)
+    assert {"Read", "Write", "Edit", "Bash", "Agent"} <= set(tools), (
+        f"execute scan should grant the full set incl Bash: {tools}"
+    )
     assert argv[argv.index("--permission-mode") + 1] == "acceptEdits"
 
 
