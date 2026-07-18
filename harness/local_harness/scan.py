@@ -209,23 +209,29 @@ def scan_folder(folder_path, log_file=None, readonly=True):
     # execution); it retains Read/Grep/Glob for analysis, Write/Edit so the
     # agent can record findings, and Agent/AskUserQuestion. Only an explicit
     # opt-out (readonly=False) re-adds Bash for scans that must execute code.
+    #
+    # The scan does NOT --add-dir the parent (sibling clones): under acceptEdits
+    # with Write/Edit granted, injected scanned-repo content could otherwise
+    # overwrite sibling clones. Results are written under folder_path (the cwd),
+    # so parent access is unnecessary. RESIDUAL: SKILLS_DIR/PHASES_DIR are still
+    # readable AND writable under acceptEdits, so injected content could persist
+    # edits to skill/phase files; fully closing that would require finer
+    # per-path permission controls (out of scope for this patch).
     if readonly:
         tool_args = ["--allowedTools",
                      "Read", "Write", "Edit", "Agent",
                      "AskUserQuestion", "Grep", "Glob"]
     else:
         tool_args = ["--allowedTools", "Read", "Write", "Edit", "Bash", "Agent"]
-    permission_mode = "acceptEdits"
 
     proc = subprocess.Popen(
         ["claude", "-p", prompt,
          "--output-format", "stream-json",
          "--verbose",
          *tool_args,
-         "--permission-mode", permission_mode,
+         "--permission-mode", "acceptEdits",
          "--model", MODEL,
          "--add-dir", folder_path,
-         "--add-dir", os.path.dirname(folder_path),
          "--add-dir", SKILLS_DIR,
          "--add-dir", PHASES_DIR],
         stdout=subprocess.PIPE,

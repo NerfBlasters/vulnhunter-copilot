@@ -316,6 +316,27 @@ def test_scan_folder_execute_optin_grants_bash(monkeypatch, tmp_path):
     assert argv[argv.index("--permission-mode") + 1] == "acceptEdits"
 
 
+def _add_dir_values(argv):
+    """Collect every value following an --add-dir flag in a Popen argv."""
+    return [argv[i + 1] for i, tok in enumerate(argv[:-1]) if tok == "--add-dir"]
+
+
+def test_scan_folder_readonly_no_parent_add_dir(monkeypatch, tmp_path):
+    """CANON-03/Fix B: a read-only (default) scan must NOT --add-dir the parent.
+
+    Granting write to the parent dir (via acceptEdits + Write/Edit) would let
+    injected scanned-repo content overwrite sibling clones. The scanned folder
+    itself must still be added (results are written under it).
+    """
+    _tools, argv = _capture_scan_tools(monkeypatch, tmp_path)  # default readonly
+    folder = str(tmp_path / "repo")
+    add_dirs = _add_dir_values(argv)
+    assert folder in add_dirs, f"scanned folder must be added: {add_dirs}"
+    assert os.path.dirname(folder) not in add_dirs, (
+        f"parent dir must NOT be added for a read-only scan: {add_dirs}"
+    )
+
+
 def test_scan_folder_timeout(monkeypatch, tmp_path):
     folder = tmp_path / "repo"
     folder.mkdir()
