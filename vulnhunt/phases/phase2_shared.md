@@ -44,6 +44,13 @@ These instructions apply to ALL class-group trace agents (INJ, NAV, LOG). Read y
    - **CANDIDATE** (input #, sink file:line, vuln class) → proceeds to gates
    - **SAFE** (input #, reason: sanitized / type-constrained / not reaching sink)
    - **DESIGN-INTENT** (input #, reason: this is the application's intended function)
+   **No-match ≠ safe.** The class list is non-exhaustive; test capability, not
+   category. If attacker-controlled data gains a capability here (read/write/exec/
+   disclosure/action under attacker steering), record CANDIDATE — even with no class
+   match and no literal string interpolated. Dismiss only by citing a guard at
+   file:line that removes it; never on "no class fits," "app's purpose," or "the one
+   vector I checked (`..`) is blocked." A trace that reached a dangerous effect cannot
+   be reasoned back to SAFE.
    **Severity-context check:** Before recording a candidate's CWE, verify you
    classified under the **highest-severity context** the sink accepts. If the
    sink operates on a scheme, format, or mode selected by attacker input (URI
