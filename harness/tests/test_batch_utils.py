@@ -91,8 +91,15 @@ def test_collect_results_does_not_follow_symlinks(tmp_path):
     # Secret target contents must never appear in the published tree.
     assert not (leaked.is_file() and not leaked.is_symlink()), \
         "symlink target followed: host secret copied into upload"
-    if leaked.exists() or os.path.lexists(str(leaked)):
+    # Guard read_text(): on a dangling-link regression lexists() is True but
+    # is_file() is False, so read_text() would raise FileNotFoundError and turn
+    # a clean failure into a test error. Only read a real regular file; any
+    # surviving symlink (dangling or not) is itself an assert failure.
+    if leaked.is_file():
         assert "TOP-SECRET-HOST-CONTENT" not in leaked.read_text()
+    else:
+        assert not os.path.lexists(str(leaked)), \
+            "symlink shipped into upload (dangling or otherwise)"
     # The legitimate regular file still copies fine.
     assert (dst / "README.md").read_text() == "legit report"
 
@@ -120,6 +127,51 @@ def test_collect_results_does_not_follow_symlinked_results_root(tmp_path):
     leaked = dst / "id_rsa"
     assert not (leaked.exists() or os.path.lexists(str(leaked))), \
         "symlinked results-dir root followed: host secret copied into upload"
+
+
+def test_collect_results_does_not_follow_deep_nested_symlinked_subdir(tmp_path):
+    # CANON-18 (deep-nested vector): the results dir is a real tree several
+    # levels deep, and at a deep leaf sits a symlink to a DIRECTORY outside the
+    # tree holding a secret. copytree's per-directory ignore= callable must drop
+    # the symlinked subdir *before* recursing into it, so neither the linked
+    # directory nor its secret contents ship. This locks in that the fix walks
+    # the whole tree, not just the top level.
+    secret_dir = tmp_path / "outside_secret_dir"
+    secret_dir.mkdir()
+    (secret_dir / "creds.env").write_text("AWS_SECRET_ACCESS_KEY=DEEP-NESTED-SECRET-qq42")
+
+    base = tmp_path / "repos"
+    base.mkdir()
+    repo = base / "evilrepo"
+    repo.mkdir()
+    rd = repo / "evilrepo_VULNHUNT_RESULTS_3"
+    rd.mkdir()
+    # A real, several-levels-deep subtree of legitimate content.
+    deep = rd / "a" / "b" / "c"
+    deep.mkdir(parents=True)
+    (deep / "finding.md").write_text("legit deep finding")
+    # At the deep leaf, plant a symlink to the outside secret DIRECTORY.
+    os.symlink(str(secret_dir), str(deep / "linked_dir"))
+
+    upload = tmp_path / "up"
+    utils.collect_results(clone_base=str(base), upload_dir=str(upload))
+
+    dst = upload / "evilrepo_VULNHUNT_RESULTS_3"
+    # The legitimate deep tree ships intact.
+    assert (dst / "a" / "b" / "c" / "finding.md").read_text() == "legit deep finding"
+    # The symlinked subdir must not ship at all (not even as a dangling link).
+    linked_upload = dst / "a" / "b" / "c" / "linked_dir"
+    assert not os.path.lexists(str(linked_upload)), \
+        "deep-nested symlinked subdir shipped into upload"
+    # The secret's contents must appear nowhere under the upload dir.
+    for root, _dirs, files in os.walk(str(upload)):
+        for name in files:
+            fp = os.path.join(root, name)
+            if os.path.islink(fp) or not os.path.isfile(fp):
+                continue
+            with open(fp, "r", errors="ignore") as f:
+                assert "DEEP-NESTED-SECRET" not in f.read(), \
+                    f"secret leaked into upload at {fp}"
 
 
 def test_scan_status_no_clone_base(tmp_path):
