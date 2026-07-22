@@ -2,14 +2,15 @@
 set -e
 
 # HOME guard: destinations (and the rm -rf below) derive from HOME. An empty
-# HOME turns "rm -rf $dst" into "rm -rf /.claude/..." — refuse cleanly.
+# HOME turns "rm -rf $dst" into "rm -rf /.copilot/..." — refuse cleanly.
 if [ -z "${HOME:-}" ]; then
     echo "error: HOME unset — refusing to run install.sh" >&2
     exit 1
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-SKILLS_PARENT="$HOME/.claude/skills"
+# Copilot CLI discovers personal skills from ~/.copilot/skills/<skill>/SKILL.md.
+SKILLS_PARENT="$HOME/.copilot/skills"
 
 # vulnhunter-fix runtime deps. The skill's scripts/_skill_bootstrap.py expects
 # a bundled venv at <skill>/.venv containing these; without it preflight's

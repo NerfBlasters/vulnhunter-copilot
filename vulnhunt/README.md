@@ -1,6 +1,6 @@
 # VulnHunter (`/vulnhunt`)
 
-The core VulnHunter scanner skill for [Claude Code](https://docs.claude.com/en/docs/claude-code).
+The core VulnHunter scanner skill for the [GitHub Copilot CLI](https://docs.github.com/copilot/how-tos/use-copilot-agents/use-copilot-cli).
 It maps every user-controllable input in a codebase, traces each one *forward*
 to dangerous sinks, runs an adversarial pipeline to disprove weak candidates,
 and emits only findings it can back with an executable proof-of-concept and a
@@ -11,7 +11,7 @@ under `phases/`; there is no Python package to install.
 
 This skill ships as part of the [VulnHunter](https://github.com/capitalone/vulnhunter)
 repository. From the repository root, run the shared installer to copy all skills
-(including this one) into `~/.claude/skills/`:
+(including this one) into `~/.copilot/skills/`:
 
 ```bash
 ./install.sh      # installs vulnhunt, vulnhunt-fix-verify, and vulnhunter-fix
@@ -22,18 +22,16 @@ repository. From the repository root, run the shared installer to copy all skill
 `find`/`glob` inside subagents. Re-run `./install.sh` after editing any skill
 file to refresh the installed copy.
 
-> **Run on Opus.** The falsification discipline that keeps false positives low
-> depends on frontier Opus-class reasoning. You supply your own model access.
+> **Use a frontier-class model.** The falsification discipline that keeps false
+> positives low depends on strong multi-step reasoning. You supply your own model access.
 
 ## Usage
 
 ```bash
-claude --model opus \
-       --add-dir ~/.claude/skills/vulnhunt \
-       --add-dir ~/.claude/skills/vulnhunt/phases
+copilot
 
-# then inside the Claude Code session:
-/vulnhunt
+# then inside the Copilot CLI session:
+Use the /vulnhunt skill to audit this codebase for exploitable vulnerabilities.
 ```
 
 The scan writes its artifacts to a `*_VULNHUNT_RESULTS_*` directory (report
@@ -66,8 +64,8 @@ it is cached across the parallel dispatch.
 
 ## Requirements
 
-- The [Claude Code CLI](https://docs.claude.com/en/docs/claude-code),
-  authenticated, running on an Opus model.
+- The [GitHub Copilot CLI](https://docs.github.com/copilot/how-tos/use-copilot-agents/use-copilot-cli),
+  authenticated and running a frontier-class model.
 - No Python, no network — the skill is read-only over the target checkout by
   default. (The agent runtime can opt into `--no-read-only --enable-bash` to run
   exploit tests; interactive use stays static.)

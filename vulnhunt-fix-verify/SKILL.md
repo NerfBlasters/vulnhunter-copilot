@@ -64,8 +64,12 @@ and tell the user what's wrong. Do not invent defaults.
 
 ## Phase loading
 
-Phases live under `${CLAUDE_SKILL_DIR}/phases/`. Each phase file is
-a **procedure**, not a subagent prompt — you execute the procedure
+Phases live under this skill's `phases/` directory. For the default
+`install.sh` deployment, bind
+`PHASES_DIR="$HOME/.copilot/skills/vulnhunt-fix-verify/phases"`; if the skill
+was loaded from another location, use its bundled `phases/` directory instead.
+Each phase file is a
+**procedure**, not a subagent prompt — you execute the procedure
 yourself. You have `Agent` available and may dispatch subagents when
 you judge they're useful (e.g. to keep your own context clean while
 verifying a finding that spans many files, or to parallelize across

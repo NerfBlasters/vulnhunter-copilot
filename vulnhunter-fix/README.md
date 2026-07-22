@@ -1,6 +1,6 @@
 # VulnHunter-Fix
 
-Automated security remediation skill for [Claude Code](https://docs.claude.com/en/docs/claude-code).
+Automated security remediation skill for the [GitHub Copilot CLI](https://docs.github.com/copilot/how-tos/use-copilot-agents/use-copilot-cli).
 This is the companion to VulnHunter: VulnHunter finds the vulnerabilities,
 VulnHunter-Fix remediates them via test-driven development. For each finding it
 writes an exploit demo, writes a failing security test (RED), implements the fix
@@ -10,25 +10,24 @@ writes an exploit demo, writes a failing security test (RED), implements the fix
 
 This skill ships as part of the [VulnHunter](https://github.com/capitalone/vulnhunter)
 repository. From the repository root, run the shared installer to copy all skills
-(including this one) into `~/.claude/skills/`:
+(including this one) into `~/.copilot/skills/`:
 
 ```bash
 ./install.sh      # installs vulnhunt, vulnhunt-fix-verify, and vulnhunter-fix
 ./uninstall.sh    # removes them
 ```
 
-Restart Claude Code afterward, then invoke it with `/vulnhunter-fix`. Re-run
-`./install.sh` from the repo root any time you change this skill's files to sync the
-installed copy.
+Start a new Copilot CLI session afterward, or run `/skills reload`, then invoke
+`/vulnhunter-fix`. Re-run `./install.sh` from the repo root any time you change
+this skill's files to sync the installed copy.
 
-> **Run on Opus.** The reasoning load (clustering, fix synthesis, the collaboration
-> loop) is calibrated for Opus; the skill stops and asks you to switch if it detects
-> Sonnet or Haiku.
+> **Use a frontier-class model.** The reasoning load (clustering, fix synthesis,
+> and the collaboration loop) needs strong multi-step reasoning.
 
 ## Requirements
 
-- The [Claude Code CLI](https://docs.claude.com/en/docs/claude-code), authenticated,
-  running on an Opus model.
+- The [GitHub Copilot CLI](https://docs.github.com/copilot/how-tos/use-copilot-agents/use-copilot-cli),
+  authenticated and running a frontier-class model.
 - `git` and the GitHub CLI (`gh`), authenticated for the repos you target.
 - Python 3.11+ with the skill's helper package installed:
   `python -m pip install -e ".[dev]"` (from this directory) — pulls in `jsonschema`.
@@ -47,17 +46,17 @@ GitHub checkout with no args; fork when you pass a target + results path).
 
 ```bash
 cd ~/code/my-project          # a repo where VulnHunter has posted findings as issues
-claude --model opus --add-dir ~/.claude/skills/vulnhunter-fix
-# then in Claude Code:
-/vulnhunter-fix
+copilot
+# then in Copilot CLI:
+Use the /vulnhunter-fix skill to remediate the VulnHunter findings.
 ```
 
 ### Quick start (fork)
 
 ```bash
-claude --model opus --add-dir ~/.claude/skills/vulnhunter-fix
-# then in Claude Code:
-/vulnhunter-fix https://github.com/your-org/my-service /path/to/RepoName_VULNHUNT_RESULTS_*/
+copilot
+# then in Copilot CLI:
+Use the /vulnhunter-fix skill to remediate https://github.com/your-org/my-service using /path/to/RepoName_VULNHUNT_RESULTS_*/.
 ```
 
 ## Workflow

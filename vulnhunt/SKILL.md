@@ -15,19 +15,11 @@ trigger:
 
 ## MANDATORY FIRST ACTIONS
 
-**Step 0: Model check (interactive/direct invocation only).** When invoked
-interactively — i.e. path **B** below, with no "Pre-resolved scan metadata"
-block — inspect the model you are running as. If it is NOT Opus 4.7 or higher,
-**STOP immediately** and tell the user (do not run any tools, resolve the target,
-or offer the mode menu yet):
-
-> ⚠️ VulnHunter is optimized for Claude Opus 4.7/4.8 and may be unreliable on other
-> models. Please switch with the `/model opus` command, then re-run `/vulnhunt`.
-
-Wait for the user. Only proceed past this step once they are on Opus, or if they
-explicitly reply that they want to continue on the current model anyway.
-
-Skip this check under path **A** (agent-driven); the agent controls the model.
+**Step 0: Model guidance (interactive/direct invocation only).** VulnHunter is
+calibrated for frontier-class reasoning models. If the active Copilot model is
+not suitable for a deep security review, warn the user before continuing and
+recommend selecting a stronger model with `/model`. Do not block an explicit
+request to continue on the current model.
 
 Bind `VULNHUNT_DIR` (results dir), `VULNHUNT_BRANCH` (`<branch> [<short-sha>]` or
 `unknown`), and `Repository URL` (normalized origin URL, else dir basename), then do
@@ -321,7 +313,10 @@ Put them in the Code Quality section and stop.
 
 ## Phase Loading Instructions
 
-Phase files are in `${CLAUDE_SKILL_DIR}/phases/`. Use this as `PHASES_DIR`.
+Phase files are in this skill's `phases/` directory. For the default
+`install.sh` deployment, bind
+`PHASES_DIR="$HOME/.copilot/skills/vulnhunt/phases"`; if the skill was loaded
+from another location, use its bundled `phases/` directory instead.
 
 **Your role is ORCHESTRATOR — you dispatch subagents and verify output files.
 You do NOT perform analysis yourself. Keep your context lean.**

@@ -14,14 +14,13 @@ Developed internally at Capital One, VulnHunter is released to the community bec
 
 > [!WARNING]
 > **Cyber-safeguard disclaimer**
-> VulnHunter performs dual-use cybersecurity work (vulnerability discovery and exploitation). If you run it against an Anthropic account that is **not** enrolled in Anthropic's [Cyber Verification Program](https://support.claude.com/en/articles/14604842-real-time-cyber-safeguards-on-claude), real-time cyber safeguards may block requests and your usage may be flagged for cyber abuse. If you intend to use VulnHunter on Anthropic's first-party platforms (Claude API / Claude Code), we strongly recommend enrolling first via the [verification portal](https://portal.anthropic.com/programs/cvp).
+> VulnHunter performs dual-use cybersecurity work (vulnerability discovery and exploitation). Ensure that your model-provider account is authorized for security research and that you only scan code you are explicitly authorized to analyze.
 
 ---
 
 > [!IMPORTANT]
 > **Prerequisites & Model Requirements**
-> Built and optimized for **Claude Opus** running in **[Claude Code](https://docs.claude.com/en/docs/claude-code)**. 
-> The framework depends on deep, multi-step reasoning and requires frontier Opus-class models. **You supply your own model access.**
+> Built for the **[GitHub Copilot CLI](https://docs.github.com/copilot/how-tos/use-copilot-agents/use-copilot-cli)**. The framework depends on deep, multi-step reasoning and works best with a frontier-class model. **You supply your own model access.**
 
 ---
 
@@ -35,7 +34,7 @@ Developed internally at Capital One, VulnHunter is released to the community bec
 
 ## The Closed Loop: Hunt → Fix → Verify
 
-VulnHunter ships as three composable [Claude Code](https://docs.claude.com/en/docs/claude-code) skills that form a complete, automated remediation loop:
+VulnHunter ships as three composable [GitHub Copilot](https://docs.github.com/copilot/concepts/agents/about-agent-skills) skills that form a complete, automated remediation loop:
 
 | Skill | Phase | Core Responsibility |
 | :--- | :--- | :--- |
@@ -66,7 +65,7 @@ Each component is organized into a self-contained subtree:
 ## Requirements & Setup
 
 ### Prerequisites
-* [Claude Code CLI](https://docs.claude.com/en/docs/claude-code), authenticated with access to **Claude Opus**.
+* [GitHub Copilot CLI](https://docs.github.com/copilot/how-tos/use-copilot-agents/use-copilot-cli), authenticated with access to a frontier-class model.
 * Python 3.12+ (Required only for the runtime agent and the benchmarking harness).
 * *Responsibility Check:* Ensure you are only scanning code bases you are explicitly authorized to analyze.
 
@@ -77,7 +76,7 @@ Each component is organized into a self-contained subtree:
 git clone https://github.com/capitalone/vulnhunter.git
 cd vulnhunter
 
-# Copy skills into ~/.claude/skills/
+# Copy skills into ~/.copilot/skills/
 ./install.sh      
 
 # (Optional) To clean up or remove installed skills
@@ -91,22 +90,25 @@ cd vulnhunter
 
 ## Usage Guide
 
+`install.sh` installs personal skills under `~/.copilot/skills/`. Copilot discovers
+them automatically; start a new session or run `/skills reload` after installation.
+
 ### 1. Run the Scanner
 ```bash
-claude --model opus --add-dir ~/.claude/skills/vulnhunt --add-dir ~/.claude/skills/vulnhunt/phases
+copilot
 
-# Inside the Claude Code session, invoke:
-/vulnhunt
+# Inside the Copilot CLI session:
+Use the /vulnhunt skill to audit this codebase for exploitable vulnerabilities.
 ```
 
 ### 2. Run the Fixer
 The fixer requires `git`, the GitHub CLI (`gh`) authenticated to your target repositories, and its Python helpers installed (`pip install -e ".[dev]"` inside the `vulnhunter-fix/` directory).
 
 ```bash
-claude --model opus --add-dir ~/.claude/skills/vulnhunter-fix
+copilot
 
-# Inside the Claude Code session, invoke:
-/vulnhunter-fix
+# Inside the Copilot CLI session:
+Use the /vulnhunter-fix skill to remediate the VulnHunter findings.
 ```
 *See [`vulnhunter-fix/README.md`](vulnhunter-fix/README.md) for advanced operational modes and configuration settings.*
 
@@ -114,11 +116,10 @@ claude --model opus --add-dir ~/.claude/skills/vulnhunter-fix
 The verifier runs strictly read-only over trusted roots under a tight tool envelope (Read/Write/Edit/Glob/Grep/Agent—**no Bash execution, no network access**). The caller must pre-create the output (`out`) directory.
 
 ```bash
-claude --model opus --add-dir ~/.claude/skills/vulnhunt-fix-verify \
-       --add-dir ~/.claude/skills/vulnhunt-fix-verify/phases
+copilot
 
-# Inside the Claude Code session, invoke:
-/vulnhunt-fix-verify repo=<abs_path> report=<abs_path> fixed=VULN-001,... out=<abs_path> [comments=<abs_path>] [additional_repos=<path1>,<path2>]
+# Inside the Copilot CLI session:
+Use the /vulnhunt-fix-verify skill with repo=<abs_path> report=<abs_path> fixed=VULN-001,... out=<abs_path> [comments=<abs_path>] [additional_repos=<path1>,<path2>].
 ```
 
 ---
@@ -171,7 +172,7 @@ cd vulnhunter-agent && pip install -e ".[dev]" && python -m pytest -q
 
 ## Contributing, Security & License
 
-* **A Note on Models:** VulnHunter was precision-tuned for **Claude Opus** and **Claude Code**. Its low false-positive discipline relies heavily on frontier-class reasoning, though the underlying orchestration patterns can be adapted to other advanced foundation models.
+* **A Note on Models:** VulnHunter was precision-tuned for frontier-class reasoning. Its low false-positive discipline relies heavily on strong multi-step reasoning.
 * **Contributing:** See [CONTRIBUTING.md](CONTRIBUTING.md) to propose core framework improvements, prompt updates, or wider model support configurations.
 * **Security:** Review [SECURITY.md](SECURITY.md) for instructions on how to safely report security vulnerabilities found within VulnHunter itself.
 * **License:** Distributed under the terms of the Apache License, Version 2.0. See [LICENSE](LICENSE) for details.

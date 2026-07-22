@@ -144,7 +144,7 @@ class TestProbeSkipping:
         repo = _init_repo(tmp_path, origin="https://github.com/a/b.git")
         monkeypatch.chdir(repo)
         for fn in (
-            "check_python", "check_git", "check_gh_cli", "check_claude_cli",
+            "check_python", "check_git", "check_gh_cli", "check_copilot_cli",
             "check_memory", "check_disk_space", "check_in_place_mode",
         ):
             monkeypatch.setattr(preflight, fn, lambda *a, **kw: None)
@@ -161,7 +161,7 @@ class TestProbeSkipping:
     def test_probe_runs_when_fork_mode(self, tmp_path, monkeypatch, capsys):
         monkeypatch.chdir(tmp_path)
         for fn in (
-            "check_python", "check_git", "check_gh_cli", "check_claude_cli",
+            "check_python", "check_git", "check_gh_cli", "check_copilot_cli",
             "check_memory", "check_disk_space", "check_in_place_mode",
         ):
             monkeypatch.setattr(preflight, fn, lambda *a, **kw: None)

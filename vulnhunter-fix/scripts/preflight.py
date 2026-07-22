@@ -4,7 +4,7 @@ VulnHunter Fix — Preflight Check
 
 Verifies LOCAL system requirements before running the pipeline. Does
 not make any network calls — auth + reachability are verified by the
-prompt via Claude's Bash tool (which has the working network context
+prompt via Copilot CLI's Bash tool (which has the working network context
 this Python process doesn't).
 
 Run from CWD = the user's target repo for in-place mode, or any cwd
@@ -94,20 +94,20 @@ def check_gh_cli():
         check("gh CLI", False, "cannot determine version")
 
 
-def check_claude_cli():
-    claude = shutil.which("claude")
-    if not claude:
-        check("Claude CLI", False, "not found in PATH")
+def check_copilot_cli():
+    copilot = shutil.which("copilot")
+    if not copilot:
+        check("Copilot CLI", False, "not found in PATH")
         return
     try:
-        # `claude --version` may shell out through the CLI's own network path;
+        # `copilot --version` may shell out through the CLI's own network path;
         # cap at 5s so a hung network call doesn't wedge preflight.
         out = subprocess.check_output(
-            ["claude", "--version"], text=True, stderr=subprocess.DEVNULL, timeout=5,
+            ["copilot", "--version"], text=True, stderr=subprocess.DEVNULL, timeout=5,
         ).strip()
-        check(f"Claude CLI ({out})" if out else "Claude CLI", True)
+        check(f"Copilot CLI ({out})" if out else "Copilot CLI", True)
     except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError):
-        check("Claude CLI", False, "cannot determine version")
+        check("Copilot CLI", False, "cannot determine version")
 
 
 def check_disk_space():
@@ -210,7 +210,7 @@ def check_in_place_mode(repo_root: str | None = None):
     """Run the in-place-mode-specific local checks.
 
     No network — `gh auth` and repo-access verification happen in the
-    SKILL.md prompt via Claude's Bash tool (which has the working
+    SKILL.md prompt via Copilot CLI's Bash tool (which has the working
     network context Python doesn't).
 
     ``repo_root`` may be passed in by the caller to avoid re-running
@@ -328,7 +328,7 @@ def main():
     check_python()
     check_git()
     check_gh_cli()
-    check_claude_cli()
+    check_copilot_cli()
 
     print("\nRemediation-rigor (Bundle 2 + 6):")
     check_graphifyy()
@@ -378,8 +378,7 @@ def _print_bootstrap_hint():
     else:
         return  # Deps ARE importable — some other check is failing; no hint needed.
 
-    skill_dir = os.path.expanduser("~/.claude/skills/vulnhunter-fix")
-    install_sh = os.path.join(skill_dir, "install.sh")
+    skill_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     venv_python = os.path.join(skill_dir, ".venv", "bin", "python3")
 
     print("\nBootstrap hint:")
@@ -393,19 +392,10 @@ def _print_bootstrap_hint():
         print("  by default) and re-run preflight — the re-exec will")
         print("  transparently switch to the bundled Python 3.11.")
         print("  If that still fails, rebuild the venv:")
-        print(f"    bash {install_sh}")
-    elif os.path.isfile(install_sh):
-        # Installed skill dir exists but no venv → installer never ran or
-        # ran with an older install.sh that predates the venv bundling.
-        print(f"  Install script found but bundled venv is missing:")
-        print(f"    bash {install_sh}")
-        print("  This creates ~/.claude/skills/vulnhunter-fix/.venv/ and")
-        print("  installs graphifyy + jsonschema into it.")
+        print("  Re-run ./install.sh from the VulnHunter source checkout.")
     else:
-        # Not installed at all.
-        print("  No installed skill at ~/.claude/skills/vulnhunter-fix/.")
-        print("  From your vulnhunter-fix source checkout:")
-        print("    bash install.sh")
+        print("  The installed skill is missing its bundled venv.")
+        print("  Re-run ./install.sh from the VulnHunter source checkout.")
 
 
 if __name__ == "__main__":

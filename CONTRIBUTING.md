@@ -30,7 +30,7 @@ cd vulnhunter-agent && python -m pip install -e ".[dev]" && python -m pytest -q
 
 The `vulnhunt/`, `vulnhunt-fix-verify/`, and `vulnhunter-fix/` skills are
 prompt-only (Markdown); install them locally with `./install.sh` from the repo
-root to try changes with the `claude` CLI.
+root to try changes with the `copilot` CLI.
 
 ## Pull requests
 

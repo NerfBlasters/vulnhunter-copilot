@@ -19,6 +19,15 @@ trigger:
 
 # VulnFix — Automated Security Remediation via TDD
 
+## Skill resources
+
+Copilot makes all files bundled with this skill available when the skill is
+invoked. For the default `install.sh` deployment, bind
+`SKILL_DIR="$HOME/.copilot/skills/vulnhunter-fix"` before running any command
+below. If the skill was loaded from another location, use that skill base
+directory instead. All referenced scripts, prompts, and configuration files are
+relative to `SKILL_DIR`.
+
 ## Overview
 
 VulnFix takes VulnHunter scan results and automates the full remediation lifecycle:
@@ -96,21 +105,11 @@ In-place mode harvests findings from `vulnhunter`-labeled issues; no inputs are 
 
 ## Mandatory First Actions
 
-**Step 0: Confirm you're running on Opus.** *(in-place / interactive mode only — headless skips this)*
-
-The reasoning load in this skill — clustering findings by topic, the CANNOT_AUTO_FIX collaboration loop, fix synthesis when the report leaves gaps — is calibrated for Opus. Sonnet and Haiku produce noticeably worse results: weaker clustering, hand-wavier fix proposals, more dead-end iterations in the loop.
-
-Check your own model identity from your session system prompt (it says "You are powered by the model named …"):
-
-| You are | Action |
-|---------|--------|
-| Opus 4.x (any variant) | Proceed to Step 1. |
-| Sonnet 4.x | **Stop.** Tell the user, verbatim: `This skill is calibrated for Opus. Please run `/model claude-opus-4-8` and then re-invoke `/vulnhunter-fix`.` Do not run any other tool calls. |
-| Haiku 4.x | **Stop.** Same message as above. |
-
-This is interactive-mode only. Headless mode invokes the executor with a fixed Opus model under the hood and skips this gate.
-
-The check applies even if the user has *just* switched models mid-session — you may have started this turn on Sonnet because that was the session default before they ran `/vulnhunter-fix`. The `/model` command takes effect on the *next* turn, so stopping here gives the user the clean handoff.
+**Step 0: Model guidance.** This workflow needs a frontier-class reasoning
+model for clustering, fix synthesis, and the collaboration loop. If the active
+Copilot model is not suitable, warn the user and recommend selecting a stronger
+model with `/model`. Continue when the user explicitly chooses to use the
+current model.
 
 **Step 0b: Confirm the installed skill is at upstream `main`.** *(in-place / interactive mode only)*
 
@@ -161,7 +160,7 @@ gh repo view "$OWNER_REPO" --json name,owner >/dev/null \
 
 **This rule overrides any local instinct to retry, fall back to a different tool, or work around a `git` / `gh` failure. Read it before every phase that runs either command.**
 
-Some target environments (notably macOS with corporate keychain interception or restrictive sandboxes) make `git` and `gh` calls fail intermittently from within Claude Code's Bash tool — even though the same command works perfectly in the user's own terminal. The failure modes vary:
+Some target environments (notably macOS with corporate keychain interception or restrictive sandboxes) make `git` and `gh` calls fail intermittently from within Copilot CLI's Bash tool — even though the same command works perfectly in the user's own terminal. The failure modes vary:
 
 - TLS errors: `tls: failed to verify certificate`, `x509: OSStatus -…`, `SSL certificate problem: unable to get local issuer certificate`, `Could not resolve host: api.github.com`.
 - Sandbox / filesystem denials during `git clone`: `Operation not permitted` when copying hook templates into `.git/hooks/`, `fatal: cannot copy '…/commit-msg.sample' to '…/.git/hooks/…'`.
@@ -181,7 +180,7 @@ When you hit one of these, this is the **only** acceptable sequence:
 2. **Tell the user, in plain text, exactly ONE command to run in their own terminal** (NOT a multi-command pipeline, NOT a `cd && cmd` chain — one literal command they can copy and paste). Use this exact format so the command stands out visually instead of getting buried in prose:
 
    ````
-   ⚠️ `<original tool call>` failed inside Claude Code's sandbox.
+   ⚠️ `<original tool call>` failed inside Copilot CLI's sandbox.
 
    **▶ Run this in your own terminal, then paste the output back (or just "done"):**
 
@@ -227,7 +226,7 @@ When the failing command involves a language toolchain that fetches dependencies
 For Go specifically — this is the most common case in the current target environments — the full template for module-cache repopulation is:
 
 ````
-⚠️ `go mod download` failed inside Claude Code's sandbox (network/proxy block).
+⚠️ `go mod download` failed inside Copilot CLI's sandbox (network/proxy block).
 
 **▶ Run this in your own terminal, then paste "done" back:**
 

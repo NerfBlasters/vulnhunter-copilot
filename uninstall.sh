@@ -2,14 +2,14 @@
 set -e
 
 # HOME guard: dst (and its rm -rf) derive from HOME. An empty HOME turns
-# "rm -rf $dst" into "rm -rf /.claude/skills/..." — refuse cleanly. The
+# "rm -rf $dst" into "rm -rf /.copilot/skills/..." — refuse cleanly. The
 # recursive remove already takes the bundled .venv with it.
 if [ -z "${HOME:-}" ]; then
     echo "error: HOME unset — refusing to run uninstall.sh" >&2
     exit 1
 fi
 
-SKILLS_PARENT="$HOME/.claude/skills"
+SKILLS_PARENT="$HOME/.copilot/skills"
 
 # Skill names to remove (must match the names install.sh writes).
 SKILLS=(vulnhunt vulnhunt-fix-verify vulnhunter-fix)
